@@ -1,0 +1,12 @@
+{
+  "smtp": {
+    "host": "smtp.gmail.com",
+    "port": 587,
+    "user": "someone",
+    "pass": "********",
+    "from_name": "Fundog",
+    "from_email": "someone@gmail.com",
+    "to_name": "Master",
+    "to_email": "someone@gmail.com"
+  }
+}
