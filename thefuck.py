@@ -2,7 +2,7 @@ import time
 
 import fundog
 
-@fundog.watch_by_email
+@fundog.watch_by_telegram
 def thefuck_one():
     print('The fuck #1')
     time.sleep(0)

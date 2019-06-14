@@ -9,6 +9,8 @@ import smtplib
 import sys
 import time
 
+import requests
+
 version = '0.8.0'
 hinted = False
 
@@ -22,7 +24,9 @@ def load_config(channel):
 
     with open(conf_path, 'r') as f_conf:
         conf = json.load(f_conf)[channel]
-        if conf['from_email'] != 'someone@gmail.com':
+        if channel == 'smtp' and conf['from_email'] != 'someone@gmail.com':
+            return conf
+        if channel == 'telegram' and conf['token'] != '123456789:-----------------------------------':
             return conf
 
     if not hinted:
@@ -31,6 +35,25 @@ def load_config(channel):
         print('-' * 65)
         os.system('open -t ~/.fundog.json')
         hinted = True
+
+def telegram_send_message(conf, summary, detail):
+    message = '{}\n```\n{}\n```'.format(summary, detail)
+
+    api = 'https://api.telegram.org/bot{}/sendMessage'.format(conf['token'])
+    params = {
+        'chat_id': conf['master'],
+        'text': message,
+        'parse_mode': 'markdown'
+    }
+
+    sent = False
+    retry = -1
+    while not sent and retry < 3:
+        r = requests.post(api, data=params)
+        if r.status_code != 200:
+            retry += 1
+        else:
+            sent = True
 
 def watch_by_email(func=None, subject=''):
     state = {
@@ -69,9 +92,6 @@ def watch_by_email(func=None, subject=''):
                 ''') \
                 .format(outstr, elapsed, version)
 
-            #print(contents)
-            #return
-
             msg = MIMEText(contents, 'html', 'utf-8')
             if subject == '':
                 msg['Subject'] = Header('Function {}() executed.'.format(state['func_name']))
@@ -91,6 +111,51 @@ def watch_by_email(func=None, subject=''):
             except Exception as ex:
                 print('Failed to send email.')
                 print(ex)
+
+    def func_wrapper(*args):
+        pre_task()
+        fret = func(*args)
+        state['func_name'] = func.__name__
+        post_task()
+        return fret
+
+    def deco_wrapper(func):
+        def func_wrapper(*args):
+            pre_task()
+            fret = func(*args)
+            state['func_name'] = func.__name__
+            post_task()
+            return fret
+        return func_wrapper
+
+    return deco_wrapper if func is None else func_wrapper
+
+def watch_by_telegram(func=None, subject='Fuck'):
+    state = {
+        'begin': 0,
+        'conf': None,
+        'func_name': ''
+    }
+
+    def pre_task():
+        state['conf'] = load_config('telegram')
+        if state['conf'] is not None:
+            state['begin'] = time.time()
+            sys.stdout = io.StringIO()
+
+    def post_task():
+        if state['conf'] is not None:
+            conf = state['conf']
+            elapsed = time.time() - state['begin']
+            sys.stdout.seek(0)
+            outstr = sys.stdout.read().strip()
+            sys.stdout.close()
+            sys.stdout = sys.__stdout__
+
+            def start(bot, update):
+                print('start')
+
+            telegram_send_message(conf, subject, outstr)
 
     def func_wrapper(*args):
         pre_task()

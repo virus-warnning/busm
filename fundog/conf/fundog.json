@@ -8,5 +8,9 @@
     "from_email": "someone@gmail.com",
     "to_name": "Master",
     "to_email": "someone@gmail.com"
+  },
+  "telegram": {
+    "token": "123456789:-----------------------------------",
+    "master": "123456789"
   }
 }
