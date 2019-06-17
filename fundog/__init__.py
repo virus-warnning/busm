@@ -28,12 +28,14 @@ def load_config(channel):
             return conf
         if channel == 'telegram' and conf['token'] != '123456789:-----------------------------------':
             return conf
+        if channel == 'line-notify' and conf['token'] != '':
+            return conf
 
     if not hinted:
         print('-' * 65)
         print('  Please change fundog config file (~/.fundog.json) to enable.')
         print('-' * 65)
-        os.system('open -t ~/.fundog.json')
+        os.system('open -t ~/.fundog.json') # TODO: Limit Darwin only.
         hinted = True
 
 def telegram_send_message(conf, summary, detail):
@@ -50,6 +52,27 @@ def telegram_send_message(conf, summary, detail):
     retry = -1
     while not sent and retry < 3:
         r = requests.post(api, data=params)
+        if r.status_code != 200:
+            retry += 1
+        else:
+            sent = True
+
+def line_send_message(conf, summary, detail):
+    message = '{}\n{}'.format(summary, detail)
+
+    api = 'https://notify-api.line.me/api/notify'
+    params = {
+        'message': message
+    }
+    headers = {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Authorization': 'Bearer {}'.format(conf['token'])
+    }
+
+    sent = False
+    retry = -1
+    while not sent and retry < 3:
+        r = requests.post(api, data=params, headers=headers)
         if r.status_code != 200:
             retry += 1
         else:
@@ -130,7 +153,7 @@ def watch_by_email(func=None, subject=''):
 
     return deco_wrapper if func is None else func_wrapper
 
-def watch_by_telegram(func=None, subject='Fuck'):
+def watch_by_telegram(func=None, subject=''):
     state = {
         'begin': 0,
         'conf': None,
@@ -151,11 +174,48 @@ def watch_by_telegram(func=None, subject='Fuck'):
             outstr = sys.stdout.read().strip()
             sys.stdout.close()
             sys.stdout = sys.__stdout__
-
-            def start(bot, update):
-                print('start')
-
             telegram_send_message(conf, subject, outstr)
+
+    def func_wrapper(*args):
+        pre_task()
+        fret = func(*args)
+        state['func_name'] = func.__name__
+        post_task()
+        return fret
+
+    def deco_wrapper(func):
+        def func_wrapper(*args):
+            pre_task()
+            fret = func(*args)
+            state['func_name'] = func.__name__
+            post_task()
+            return fret
+        return func_wrapper
+
+    return deco_wrapper if func is None else func_wrapper
+
+def watch_by_line(func=None, subject=''):
+    state = {
+        'begin': 0,
+        'conf': None,
+        'func_name': ''
+    }
+
+    def pre_task():
+        state['conf'] = load_config('line-notify')
+        if state['conf'] is not None:
+            state['begin'] = time.time()
+            sys.stdout = io.StringIO()
+
+    def post_task():
+        if state['conf'] is not None:
+            conf = state['conf']
+            elapsed = time.time() - state['begin']
+            sys.stdout.seek(0)
+            outstr = sys.stdout.read().strip()
+            sys.stdout.close()
+            sys.stdout = sys.__stdout__
+            line_send_message(conf, subject, outstr)
 
     def func_wrapper(*args):
         pre_task()

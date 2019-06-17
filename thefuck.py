@@ -2,16 +2,22 @@ import time
 
 import fundog
 
-@fundog.watch_by_telegram
+@fundog.watch_by_email
 def thefuck_one():
-    print('The fuck #1')
+    print('Test Email')
     time.sleep(0)
 
-@fundog.watch_by_email(subject='The fuck #2 is done.')
+@fundog.watch_by_telegram
 def thefuck_two():
-    print('The fuck #2')
+    print('Test Telegram')
+    time.sleep(0)
+
+@fundog.watch_by_line
+def thefuck_three():
+    print('Test Line')
     time.sleep(0)
 
 if __name__ == '__main__':
     thefuck_one()
     thefuck_two()
+    thefuck_three()
