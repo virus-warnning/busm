@@ -9,11 +9,13 @@ Line Notify 等方式取得函數執行過程的 stdout 訊息。
 Quick Start
 ------------
 
+First, install the package.
 
 .. code:: bash
 
     pip install busm
 
+Then add decorators before functions you'd like to monitor.
 
 .. code:: python
 
@@ -36,12 +38,22 @@ Quick Start
         foo_telegram()
         foo_line()
 
+Run your python code.
+
 .. code:: bash
 
     python foo.py
 
+You must see the following message,
+and a config file will be generated in HOME directory.
 
-~/.busm.json
+.. code:: text
+
+    -----------------------------------------------------------------
+      Please change fundog config file (~/.busm.json) to enable.
+    -----------------------------------------------------------------
+
+Edit this config file ~/.busm.json to fit for you.
 
 .. code:: json
 
@@ -64,3 +76,11 @@ Quick Start
         "token": ""
       }
     }
+
+Run your python code again.
+
+.. code:: bash
+
+    python foo.py
+
+Tada!
