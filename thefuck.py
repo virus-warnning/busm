@@ -1,18 +1,18 @@
 import time
 
-import fundog
+import busm
 
-@fundog.watch_by_email
+@busm.through_email
 def thefuck_one():
     print('Test Email')
     time.sleep(0)
 
-@fundog.watch_by_telegram
+@busm.through_telegram
 def thefuck_two():
     print('Test Telegram')
     time.sleep(0)
 
-@fundog.watch_by_line
+@busm.through_line
 def thefuck_three():
     print('Test Line')
     time.sleep(0)

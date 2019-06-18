@@ -17,9 +17,9 @@ hinted = False
 def load_config(channel):
     global hinted
 
-    conf_path = os.path.expanduser('~/.fundog.json')
+    conf_path = os.path.expanduser('~/.busm.json')
     if not os.path.isfile(conf_path):
-        tmpl_path = os.path.dirname(__file__) + '/conf/fundog.json'
+        tmpl_path = os.path.dirname(__file__) + '/conf/busm.json'
         shutil.copy(tmpl_path, conf_path)
 
     with open(conf_path, 'r') as f_conf:
@@ -28,14 +28,14 @@ def load_config(channel):
             return conf
         if channel == 'telegram' and conf['token'] != '123456789:-----------------------------------':
             return conf
-        if channel == 'line-notify' and conf['token'] != '':
+        if channel == 'line' and conf['token'] != '':
             return conf
 
     if not hinted:
         print('-' * 65)
-        print('  Please change fundog config file (~/.fundog.json) to enable.')
+        print('  Please change fundog config file (~/.busm.json) to enable.')
         print('-' * 65)
-        os.system('open -t ~/.fundog.json') # TODO: Limit Darwin only.
+        os.system('open -t ~/.busm.json') # TODO: Limit Darwin only.
         hinted = True
 
 def telegram_send_message(conf, summary, detail):
@@ -78,7 +78,7 @@ def line_send_message(conf, summary, detail):
         else:
             sent = True
 
-def watch_by_email(func=None, subject=''):
+def through_email(func=None, subject=''):
     state = {
         'begin': 0,
         'conf': None,
@@ -153,7 +153,7 @@ def watch_by_email(func=None, subject=''):
 
     return deco_wrapper if func is None else func_wrapper
 
-def watch_by_telegram(func=None, subject=''):
+def through_telegram(func=None, subject=''):
     state = {
         'begin': 0,
         'conf': None,
@@ -194,7 +194,7 @@ def watch_by_telegram(func=None, subject=''):
 
     return deco_wrapper if func is None else func_wrapper
 
-def watch_by_line(func=None, subject=''):
+def through_line(func=None, subject=''):
     state = {
         'begin': 0,
         'conf': None,
@@ -202,7 +202,7 @@ def watch_by_line(func=None, subject=''):
     }
 
     def pre_task():
-        state['conf'] = load_config('line-notify')
+        state['conf'] = load_config('line')
         if state['conf'] is not None:
             state['begin'] = time.time()
             sys.stdout = io.StringIO()
