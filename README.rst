@@ -10,11 +10,13 @@ Quick Start
 ------------
 
 
-..
+.. code:: bash
+
     pip install busm
 
 
-..
+.. code:: python
+
     import busm
 
     @busm.through_email
@@ -34,13 +36,15 @@ Quick Start
         foo_telegram()
         foo_line()
 
-..
+.. code:: bash
+
     python foo.py
 
 
 ~/.busm.json
 
-..
+.. code:: json
+
     {
       "smtp": {
         "host": "smtp.gmail.com",
