@@ -5,7 +5,7 @@ import sys
 
 # 檢查 Python 程式碼規範, 但容許 TODO 標記
 print('Lint *.py files.')
-cmd = 'pylint -f colorized -d fixme fundog'
+cmd = 'pylint -f colorized -d fixme busm'
 if os.system(cmd) != 0:
     exit(1)
 
@@ -15,6 +15,8 @@ cmd = ['rstcheck', 'README.rst']
 complete = subprocess.run(cmd, stdout=subprocess.PIPE)
 if complete.returncode != 0:
     exit(1)
+
+exit(0)
 
 # 打包
 print('Build wheel.')

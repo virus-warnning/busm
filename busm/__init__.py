@@ -1,3 +1,7 @@
+"""
+blah blah ...
+"""
+
 from email.header import Header
 from email.mime.text import MIMEText
 import io
@@ -14,7 +18,7 @@ import requests
 version = '0.8.0'
 hinted = False
 
-def load_config(channel):
+def __load_config(channel):
     global hinted
 
     conf_path = os.path.expanduser('~/.busm.json')
@@ -24,9 +28,11 @@ def load_config(channel):
 
     with open(conf_path, 'r') as f_conf:
         conf = json.load(f_conf)[channel]
-        if channel == 'smtp' and conf['from_email'] != 'someone@gmail.com':
+        if channel == 'smtp' and \
+           conf['from_email'] != 'someone@gmail.com':
             return conf
-        if channel == 'telegram' and conf['token'] != '123456789:-----------------------------------':
+        if channel == 'telegram' and \
+           conf['token'] != '123456789:-----------------------------------':
             return conf
         if channel == 'line' and conf['token'] != '':
             return conf
@@ -38,7 +44,7 @@ def load_config(channel):
         os.system('open -t ~/.busm.json') # TODO: Limit Darwin only.
         hinted = True
 
-def telegram_send_message(conf, summary, detail):
+def __telegram_send_message(conf, summary, detail):
     message = '{}\n```\n{}\n```'.format(summary, detail)
 
     api = 'https://api.telegram.org/bot{}/sendMessage'.format(conf['token'])
@@ -51,13 +57,13 @@ def telegram_send_message(conf, summary, detail):
     sent = False
     retry = -1
     while not sent and retry < 3:
-        r = requests.post(api, data=params)
-        if r.status_code != 200:
+        resp = requests.post(api, data=params)
+        if resp.status_code != 200:
             retry += 1
         else:
             sent = True
 
-def line_send_message(conf, summary, detail):
+def __line_send_message(conf, summary, detail):
     message = '{}\n{}'.format(summary, detail)
 
     api = 'https://notify-api.line.me/api/notify'
@@ -72,21 +78,25 @@ def line_send_message(conf, summary, detail):
     sent = False
     retry = -1
     while not sent and retry < 3:
-        r = requests.post(api, data=params, headers=headers)
-        if r.status_code != 200:
+        resp = requests.post(api, data=params, headers=headers)
+        if resp.status_code != 200:
             retry += 1
         else:
             sent = True
 
 def through_email(func=None, subject=''):
+    """
+    blah blah ...
+    """
+
     state = {
         'begin': 0,
-        'conf': None,
+        'conf': {},
         'func_name': ''
     }
 
     def pre_task():
-        state['conf'] = load_config('smtp')
+        state['conf'] = __load_config('smtp')
         if state['conf'] is not None:
             state['begin'] = time.time()
             sys.stdout = io.StringIO()
@@ -154,6 +164,10 @@ def through_email(func=None, subject=''):
     return deco_wrapper if func is None else func_wrapper
 
 def through_telegram(func=None, subject=''):
+    """
+    blah blah ...
+    """
+
     state = {
         'begin': 0,
         'conf': None,
@@ -161,7 +175,7 @@ def through_telegram(func=None, subject=''):
     }
 
     def pre_task():
-        state['conf'] = load_config('telegram')
+        state['conf'] = __load_config('telegram')
         if state['conf'] is not None:
             state['begin'] = time.time()
             sys.stdout = io.StringIO()
@@ -174,7 +188,7 @@ def through_telegram(func=None, subject=''):
             outstr = sys.stdout.read().strip()
             sys.stdout.close()
             sys.stdout = sys.__stdout__
-            telegram_send_message(conf, subject, outstr)
+            __telegram_send_message(conf, subject, outstr)
 
     def func_wrapper(*args):
         pre_task()
@@ -195,6 +209,10 @@ def through_telegram(func=None, subject=''):
     return deco_wrapper if func is None else func_wrapper
 
 def through_line(func=None, subject=''):
+    """
+    blah blah ...
+    """
+
     state = {
         'begin': 0,
         'conf': None,
@@ -202,7 +220,7 @@ def through_line(func=None, subject=''):
     }
 
     def pre_task():
-        state['conf'] = load_config('line')
+        state['conf'] = __load_config('line')
         if state['conf'] is not None:
             state['begin'] = time.time()
             sys.stdout = io.StringIO()
@@ -215,7 +233,7 @@ def through_line(func=None, subject=''):
             outstr = sys.stdout.read().strip()
             sys.stdout.close()
             sys.stdout = sys.__stdout__
-            line_send_message(conf, subject, outstr)
+            __line_send_message(conf, subject, outstr)
 
     def func_wrapper(*args):
         pre_task()
