@@ -17,7 +17,14 @@ def thefuck_three():
     print('Test Line')
     time.sleep(0)
 
+@busm.through_telegram(subject='...')
+def thefuck_four():
+    print('Test Telegram')
+    time.sleep(0)
+    a = 1 / 0
+
 if __name__ == '__main__':
-    thefuck_one()
-    thefuck_two()
-    thefuck_three()
+    #thefuck_one()
+    #thefuck_two()
+    #thefuck_three()
+    thefuck_four()

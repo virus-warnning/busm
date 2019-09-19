@@ -12,7 +12,7 @@ readme.close()
 # https://python-packaging.readthedocs.io/en/latest/non-code-files.html
 setup(
     name='busm',
-    version='0.8.0',
+    version='0.9.0',
     description='Help you get stdout of function execution through Email, Telegram and Line Notify.',
     long_description=longdesc,
     packages=find_packages(),
@@ -23,7 +23,7 @@ setup(
         'busm': ['conf/*']
     },
     install_requires=[
-        'requests'
+        'requests', 'PyYAML'
     ],
     python_requires='>=3.5'
 )

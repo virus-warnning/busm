@@ -4,21 +4,24 @@ blah blah ...
 
 from email.header import Header
 from email.mime.text import MIMEText
+from datetime import datetime
 import io
 import json
+import logging
 import os
 import re
 import shutil
 import smtplib
 import sys
 import time
+import threading
 
 import requests
 
 version = '0.8.0'
 hinted = False
 
-def __load_config(channel):
+def load_config(channel):
     global hinted
 
     conf_path = os.path.expanduser('~/.busm.json')
@@ -44,14 +47,15 @@ def __load_config(channel):
         os.system('open -t ~/.busm.json') # TODO: Limit Darwin only.
         hinted = True
 
-def __telegram_send_message(conf, summary, detail):
+def telegram_send_message(conf, summary, detail):
     message = '{}\n```\n{}\n```'.format(summary, detail)
 
     api = 'https://api.telegram.org/bot{}/sendMessage'.format(conf['token'])
     params = {
         'chat_id': conf['master'],
         'text': message,
-        'parse_mode': 'markdown'
+        'parse_mode': 'markdown',
+        'disable_web_page_preview': False
     }
 
     sent = False
@@ -63,7 +67,7 @@ def __telegram_send_message(conf, summary, detail):
         else:
             sent = True
 
-def __line_send_message(conf, summary, detail):
+def line_send_message(conf, summary, detail):
     message = '{}\n{}'.format(summary, detail)
 
     api = 'https://notify-api.line.me/api/notify'
@@ -96,7 +100,7 @@ def through_email(func=None, subject=''):
     }
 
     def pre_task():
-        state['conf'] = __load_config('smtp')
+        state['conf'] = load_config('smtp')
         if state['conf'] is not None:
             state['begin'] = time.time()
             sys.stdout = io.StringIO()
@@ -175,7 +179,7 @@ def through_telegram(func=None, subject=''):
     }
 
     def pre_task():
-        state['conf'] = __load_config('telegram')
+        state['conf'] = load_config('telegram')
         if state['conf'] is not None:
             state['begin'] = time.time()
             sys.stdout = io.StringIO()
@@ -188,8 +192,11 @@ def through_telegram(func=None, subject=''):
             outstr = sys.stdout.read().strip()
             sys.stdout.close()
             sys.stdout = sys.__stdout__
-            __telegram_send_message(conf, subject, outstr)
+            telegram_send_message(conf, subject, outstr)
 
+    # @busm.through_telegram
+    # def foo():
+    #     ...
     def func_wrapper(*args):
         pre_task()
         fret = func(*args)
@@ -197,6 +204,9 @@ def through_telegram(func=None, subject=''):
         post_task()
         return fret
 
+    # @busm.through_telegram(summary='Summary')
+    # def foo():
+    #     ...
     def deco_wrapper(func):
         def func_wrapper(*args):
             pre_task()
@@ -204,7 +214,6 @@ def through_telegram(func=None, subject=''):
             state['func_name'] = func.__name__
             post_task()
             return fret
-        return func_wrapper
 
     return deco_wrapper if func is None else func_wrapper
 
@@ -220,7 +229,7 @@ def through_line(func=None, subject=''):
     }
 
     def pre_task():
-        state['conf'] = __load_config('line')
+        state['conf'] = load_config('line')
         if state['conf'] is not None:
             state['begin'] = time.time()
             sys.stdout = io.StringIO()
@@ -233,7 +242,7 @@ def through_line(func=None, subject=''):
             outstr = sys.stdout.read().strip()
             sys.stdout.close()
             sys.stdout = sys.__stdout__
-            __line_send_message(conf, subject, outstr)
+            line_send_message(conf, subject, outstr)
 
     def func_wrapper(*args):
         pre_task()
@@ -252,3 +261,44 @@ def through_line(func=None, subject=''):
         return func_wrapper
 
     return deco_wrapper if func is None else func_wrapper
+
+class TelegramHandler(logging.Handler):
+
+    def __init__(self):
+        super().__init__()
+        self.conf = load_config('telegram')
+        self.collected = ''
+        self.last_logging = -1
+        self.send_later = None
+        self.lock = threading.Lock()
+
+    def handle(self, record):
+        detail = '\n[%s] %s\nAt: %s:%d\nMessage: %s' % (
+            datetime.now().strftime('%H:%M:%S'),
+            record.levelname,
+            record.filename,
+            record.lineno,
+            record.msg
+        )
+        t = time.time()
+        threading.Thread(target=self.append, args=(t,detail)).start()
+
+    def append(self, timing, detail):
+        with self.lock:
+            self.last_logging = timing
+            self.collected += detail
+            if self.send_later is None:
+                self.send_later = threading.Thread(target=self.send)
+                self.send_later.start()
+
+    def send(self):
+        secs_ago = time.time() - self.last_logging
+        while secs_ago < 1:
+            time.sleep(1 - secs_ago)
+            secs_ago = time.time() - self.last_logging
+
+        with self.lock:
+            telegram_send_message(self.conf, '', self.collected.strip())
+            self.collected = ''
+            self.last_logging = -1
+            self.send_later = None
