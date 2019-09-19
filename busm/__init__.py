@@ -18,7 +18,7 @@ import threading
 
 import requests
 
-version = '0.8.0'
+VERSION = '0.8.0'
 hinted = False
 
 def load_config(channel):
@@ -47,8 +47,40 @@ def load_config(channel):
         os.system('open -t ~/.busm.json') # TODO: Limit Darwin only.
         hinted = True
 
-def telegram_send_message(conf, summary, detail):
-    message = '{}\n```\n{}\n```'.format(summary, detail)
+def gl_pre_task(state):
+    state['conf'] = load_config(state['channel'])
+    if state['conf'] is not None:
+        state['begin'] = time.time()
+        sys.stdout = io.StringIO()
+
+def gl_post_task(state):
+    if state['conf'] is not None:
+        # Retrive stdout.
+        sys.stdout.seek(0)
+        state['stdout'] = sys.stdout.read().strip()
+        sys.stdout.close()
+        sys.stdout = sys.__stdout__
+
+        # Retrive execution time.
+        state['elapsed'] = time.time() - state['begin']
+
+        # Default subject
+        if state['subject'] == '':
+            state['subject'] = '{}() executed.'.format(state['func'].__name__)
+
+        # Send to target channel
+        if state['channel'] == 'telegram':
+            telegram_send_message(state['conf'], state['subject'], state['stdout'], state['elapsed'])
+        elif state['channel'] == 'line':
+            line_send_message(state['conf'], state['subject'], state['stdout'], state['elapsed'])
+        elif state['channel'] == 'smtp':
+            smtp_send_message(state['conf'], state['subject'], state['stdout'], state['elapsed'], state['debug'])
+
+def telegram_send_message(conf, subject, detail, extime=-1):
+    if extime == -1:
+        message = '*{}*\n```\n{}\n```'.format(subject, detail)
+    else:
+        message = '*{}* ({:.2f}s)\n```\n{}\n```'.format(subject, extime, detail)
 
     api = 'https://api.telegram.org/bot{}/sendMessage'.format(conf['token'])
     params = {
@@ -67,8 +99,11 @@ def telegram_send_message(conf, summary, detail):
         else:
             sent = True
 
-def line_send_message(conf, summary, detail):
-    message = '{}\n{}'.format(summary, detail)
+def line_send_message(conf, subject, detail, extime=-1):
+    if extime == -1:
+        message = '{}\n{}'.format(subject, detail)
+    else:
+        message = '{} ({:.2f}s)\n{}'.format(subject, extime, detail)
 
     api = 'https://notify-api.line.me/api/notify'
     params = {
@@ -88,179 +123,161 @@ def line_send_message(conf, summary, detail):
         else:
             sent = True
 
-def through_email(func=None, subject=''):
+def smtp_send_message(conf, subject, detail, extime=-1, debug=False):
+    # Compose email
+    if extime == -1:
+        contents = re.sub(r'\s+\| ', '\n', '''
+            | <p>STDOUT:</p>
+            | <pre style="border:1px solid #aaa; border-radius:5px; background:#e7e7e7; padding:10px;">
+            | {}
+            | </pre>
+            | <p style="color: #d0d0d0;">Sent by busm {}</p>
+            ''') \
+            .format(detail, VERSION)
+    else:
+        contents = re.sub(r'\s+\| ', '\n', '''
+            | <p>STDOUT:</p>
+            | <pre style="border:1px solid #aaa; border-radius:5px; background:#e7e7e7; padding:10px;">
+            | {}
+            | </pre>
+            | <ul style="padding: 5px">
+            | <li>Execution time: {:.2f}</li>
+            | </ul>
+            | <p style="color: #d0d0d0;">Sent by busm {}</p>
+            ''') \
+            .format(detail, extime, VERSION)
+
+    msg = MIMEText(contents, 'html', 'utf-8')
+    msg['Subject'] = Header(subject)
+    msg['From'] = '{} <{}>'.format(Header(conf['from_name']).encode(), conf['from_email'])
+    msg['To'] = '{} <{}>'.format(Header(conf['to_name']).encode(), conf['to_email'])
+    smtp_message = msg.as_string()
+
+    # Send email
+    try:
+        with smtplib.SMTP(conf['host'], conf['port'], timeout=30) as smtp:
+            if debug == True:
+                smtp.set_debuglevel(2)
+            smtp.starttls()
+            smtp.login(conf['user'], conf['pass'])
+            smtp.sendmail(conf['from_email'], conf['to_email'], smtp_message)
+    except Exception as ex:
+        print('Failed to send email.')
+        print(ex)
+
+def through_smtp(func=None, subject='', debug=False):
     """
-    blah blah ...
+    @busm.through_smtp
     """
 
     state = {
         'begin': 0,
-        'conf': {},
-        'func_name': ''
+        'conf': None,
+        'func': None,
+        'subject': subject,
+        'debug': debug,
+        'channel': 'smtp'
     }
 
-    def pre_task():
-        state['conf'] = load_config('smtp')
-        if state['conf'] is not None:
-            state['begin'] = time.time()
-            sys.stdout = io.StringIO()
-
-    def post_task():
-        if state['conf'] is not None:
-            conf = state['conf']
-            elapsed = time.time() - state['begin']
-            sys.stdout.seek(0)
-            outstr = sys.stdout.read().rstrip()
-            sys.stdout.close()
-            sys.stdout = sys.__stdout__
-
-            # Compose email
-            contents = re.sub(r'\s+\| ', '\n', '''
-                | <p>STDOUT:</p>
-                | <pre style="border:1px solid #aaa; border-radius:5px; background:#e7e7e7; padding:10px;">
-                | {}
-                | </pre>
-                | <ul style="padding: 5px">
-                | <li>Begin at: </li>
-                | <li>End at: </li>
-                | <li>Time elapsed: {:.2f}</li>
-                | </ul>
-                | <p style="color: #d0d0d0;">Sent by fundog {}</p>
-                ''') \
-                .format(outstr, elapsed, version)
-
-            msg = MIMEText(contents, 'html', 'utf-8')
-            if subject == '':
-                msg['Subject'] = Header('Function {}() executed.'.format(state['func_name']))
-            else:
-                msg['Subject'] = Header(subject)
-            msg['From'] = '{} <{}>'.format(Header(conf['from_name']).encode(), conf['from_email'])
-            msg['To'] = '{} <{}>'.format(Header(conf['to_name']).encode(), conf['to_email'])
-            smtp_message = msg.as_string()
-
-            # Send email
-            try:
-                with smtplib.SMTP(conf['host'], conf['port'], timeout=30) as smtp:
-                    smtp.set_debuglevel(2)
-                    smtp.starttls()
-                    smtp.login(conf['user'], conf['pass'])
-                    smtp.sendmail(conf['from_email'], conf['to_email'], smtp_message)
-            except Exception as ex:
-                print('Failed to send email.')
-                print(ex)
-
+    # @busm.through_smtp
     def func_wrapper(*args):
-        pre_task()
-        fret = func(*args)
-        state['func_name'] = func.__name__
-        post_task()
+        nonlocal state
+        gl_pre_task(state)
+        try:
+            fret = state['func'](*args)
+        except Exception as ex:
+            print(ex)
+            fret = None
+        gl_post_task(state)
         return fret
 
+    # @busm.through_smtp(subject='...')
     def deco_wrapper(func):
-        def func_wrapper(*args):
-            pre_task()
-            fret = func(*args)
-            state['func_name'] = func.__name__
-            post_task()
-            return fret
+        nonlocal state
+        state['func'] = func
         return func_wrapper
+
+    if callable(func):
+        state['func'] = func
+        return func_wrapper
+    else:
+        return deco_wrapper
 
     return deco_wrapper if func is None else func_wrapper
 
 def through_telegram(func=None, subject=''):
     """
-    blah blah ...
+    @busm.through_telegram
     """
 
     state = {
         'begin': 0,
         'conf': None,
-        'func_name': ''
+        'func': None,
+        'subject': subject,
+        'channel': 'telegram'
     }
 
-    def pre_task():
-        state['conf'] = load_config('telegram')
-        if state['conf'] is not None:
-            state['begin'] = time.time()
-            sys.stdout = io.StringIO()
-
-    def post_task():
-        if state['conf'] is not None:
-            conf = state['conf']
-            elapsed = time.time() - state['begin']
-            sys.stdout.seek(0)
-            outstr = sys.stdout.read().strip()
-            sys.stdout.close()
-            sys.stdout = sys.__stdout__
-            telegram_send_message(conf, subject, outstr)
-
     # @busm.through_telegram
-    # def foo():
-    #     ...
     def func_wrapper(*args):
-        pre_task()
-        fret = func(*args)
-        state['func_name'] = func.__name__
-        post_task()
+        nonlocal state
+        gl_pre_task(state)
+        try:
+            fret = state['func'](*args)
+        except Exception as ex:
+            print(ex)
+            fret = None
+        gl_post_task(state)
         return fret
 
-    # @busm.through_telegram(summary='Summary')
-    # def foo():
-    #     ...
+    # @busm.through_telegram(subject='...')
     def deco_wrapper(func):
-        def func_wrapper(*args):
-            pre_task()
-            fret = func(*args)
-            state['func_name'] = func.__name__
-            post_task()
-            return fret
+        nonlocal state
+        state['func'] = func
+        return func_wrapper
 
-    return deco_wrapper if func is None else func_wrapper
+    if callable(func):
+        state['func'] = func
+        return func_wrapper
+    else:
+        return deco_wrapper
 
 def through_line(func=None, subject=''):
     """
-    blah blah ...
+    @busm.through_line
     """
 
     state = {
         'begin': 0,
         'conf': None,
-        'func_name': ''
+        'func': None,
+        'subject': subject,
+        'channel': 'line'
     }
 
-    def pre_task():
-        state['conf'] = load_config('line')
-        if state['conf'] is not None:
-            state['begin'] = time.time()
-            sys.stdout = io.StringIO()
-
-    def post_task():
-        if state['conf'] is not None:
-            conf = state['conf']
-            elapsed = time.time() - state['begin']
-            sys.stdout.seek(0)
-            outstr = sys.stdout.read().strip()
-            sys.stdout.close()
-            sys.stdout = sys.__stdout__
-            line_send_message(conf, subject, outstr)
-
+    # @busm.through_line
     def func_wrapper(*args):
-        pre_task()
-        fret = func(*args)
-        state['func_name'] = func.__name__
-        post_task()
+        nonlocal state
+        gl_pre_task(state)
+        try:
+            fret = state['func'](*args)
+        except Exception as ex:
+            print(ex)
+            fret = None
+        gl_post_task(state)
         return fret
 
+    # @busm.through_line(subject='...')
     def deco_wrapper(func):
-        def func_wrapper(*args):
-            pre_task()
-            fret = func(*args)
-            state['func_name'] = func.__name__
-            post_task()
-            return fret
+        nonlocal state
+        state['func'] = func
         return func_wrapper
 
-    return deco_wrapper if func is None else func_wrapper
+    if callable(func):
+        state['func'] = func
+        return func_wrapper
+    else:
+        return deco_wrapper
 
 class TelegramHandler(logging.Handler):
 
