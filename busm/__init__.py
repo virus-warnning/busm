@@ -279,11 +279,12 @@ def through_line(func=None, subject=''):
     else:
         return deco_wrapper
 
-class TelegramHandler(logging.Handler):
+class BusmHandler(logging.Handler):
 
-    def __init__(self):
+    def __init__(self, channel='telegram'):
         super().__init__()
-        self.conf = load_config('telegram')
+        self.conf = load_config(channel)
+        self.channel = channel
         self.collected = ''
         self.last_logging = -1
         self.send_later = None
@@ -315,7 +316,10 @@ class TelegramHandler(logging.Handler):
             secs_ago = time.time() - self.last_logging
 
         with self.lock:
-            telegram_send_message(self.conf, '', self.collected.strip())
+            if self.channel == 'telegram':
+                telegram_send_message(self.conf, '', self.collected.strip())
+            elif self.channel == 'line':
+                line_send_message(self.conf, '', self.collected.strip())
             self.collected = ''
             self.last_logging = -1
             self.send_later = None

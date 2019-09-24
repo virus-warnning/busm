@@ -22,16 +22,22 @@
       "class": "logging.StreamHandler",
       "stream": "ext://sys.stdout"
     },
-    "telegram": {
+    "busm1": {
       "level": "DEBUG",
       "formatter": "simple",
-      "class": "busm.TelegramHandler"
+      "class": "busm.BusmHandler"
+    },
+    "busm2": {
+      "level": "DEBUG",
+      "formatter": "simple",
+      "class": "busm.BusmHandler",
+      "channel": "line"
     }
   },
   "loggers": {
     "busm": {
       "level": "DEBUG",
-      "handlers": [ "telegram", "stdout" ],
+      "handlers": [ "busm1", "busm2", "stdout" ],
       "propagate": "yes"
     }
   }

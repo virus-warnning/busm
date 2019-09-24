@@ -45,7 +45,7 @@ def by_json():
     logger.warning('That is another warning. [by_json()]')
 
 def programmatically():
-    tlh = busm.TelegramHandler()
+    tlh = busm.BusmHandler()
     logger = logging.getLogger()
     logger.addHandler(tlh)
     # These two messages would be sent in a code block.
