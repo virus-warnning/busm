@@ -1,6 +1,7 @@
 """
-blah blah ...
+doc string
 """
+# pylint: disable=fixme
 
 from email.header import Header
 from email.mime.text import MIMEText
@@ -20,10 +21,14 @@ import traceback
 import requests
 
 VERSION = '0.8.0'
-hinted = False
+HINTED = False
 
 def load_config(channel):
-    global hinted
+    """
+    doc string
+    """
+    # pylint: disable=global-statement
+    global HINTED
 
     conf_path = os.path.expanduser('~/.busm.json')
     if not os.path.isfile(conf_path):
@@ -48,27 +53,36 @@ def load_config(channel):
         os.system('open -t ~/.busm.json') # TODO: Limit Darwin only.
         hinted = True
 
+    return None
+
 def gl_pre_task(state):
+    """
+    doc string
+    """
     state['conf'] = load_config(state['channel'])
     if state['conf'] is not None:
         state['begin'] = time.time()
         sys.stdout = io.StringIO()
 
 def gl_post_task(state):
+    """
+    doc string
+    """
     if state['conf'] is not None:
         # Print exc_info
         if state['exc_val'] is not None:
             print('')
-            print('Found an exception "%s" (%s) at:' % (state['exc_val'], state['exc_type'].__name__))
+            typename = state['exc_type'].__name__
+            print('Found an exception "%s" (%s) at:' % (state['exc_val'], typename))
 
-            ss = traceback.extract_tb(state['exc_tb'])
-            ss.reverse()
+            stack = traceback.extract_tb(state['exc_tb'])
+            stack.reverse()
             indent_level = 1
-            for frm in ss:
+            for frm in stack:
                 if frm.filename.startswith(os.getcwd()):
                     filename = frm.filename[len(os.getcwd()) + 1:]
                 else:
-                    filename
+                    filename = frm.filename
                 print('  ' * indent_level, end='')
                 print('%s (%s:%s)' % (frm.line, filename, frm.lineno))
                 indent_level += 1
@@ -87,13 +101,25 @@ def gl_post_task(state):
 
         # Send to target channel
         if state['channel'] == 'telegram':
-            telegram_send_message(state['conf'], state['subject'], state['stdout'], state['elapsed'])
+            telegram_send_message(
+                state['conf'], state['subject'],
+                state['stdout'], state['elapsed']
+            )
         elif state['channel'] == 'line':
-            line_send_message(state['conf'], state['subject'], state['stdout'], state['elapsed'])
+            line_send_message(
+                state['conf'], state['subject'],
+                state['stdout'], state['elapsed']
+            )
         elif state['channel'] == 'smtp':
-            smtp_send_message(state['conf'], state['subject'], state['stdout'], state['elapsed'], state['debug'])
+            smtp_send_message(
+                state['conf'], state['subject'],
+                state['stdout'], state['elapsed'], state['debug']
+            )
 
 def telegram_send_message(conf, subject, detail, extime=-1):
+    """
+    doc string
+    """
     if extime == -1:
         message = '*{}*\n```\n{}\n```'.format(subject, detail)
     else:
@@ -117,6 +143,9 @@ def telegram_send_message(conf, subject, detail, extime=-1):
             sent = True
 
 def line_send_message(conf, subject, detail, extime=-1):
+    """
+    doc string
+    """
     if extime == -1:
         message = '{}\n\n```{}```'.format(subject, detail)
     else:
@@ -141,6 +170,9 @@ def line_send_message(conf, subject, detail, extime=-1):
             sent = True
 
 def smtp_send_message(conf, subject, detail, extime=-1, debug=False):
+    """
+    doc string
+    """
     # Compose email
     if extime == -1:
         contents = re.sub(r'\s+\| ', '\n', '''
@@ -171,6 +203,7 @@ def smtp_send_message(conf, subject, detail, extime=-1, debug=False):
     smtp_message = msg.as_string()
 
     # Send email
+    # pylint: disable=broad-except, singleton-comparison
     try:
         with smtplib.SMTP(conf['host'], conf['port'], timeout=30) as smtp:
             if debug == True:
@@ -201,11 +234,12 @@ def through_smtp(func=None, subject='', debug=False):
 
     # @busm.through_smtp
     def func_wrapper(*args):
+        # pylint: disable=not-callable, broad-except
         nonlocal state
         gl_pre_task(state)
         try:
             fret = state['func'](*args)
-        except Exception as ex:
+        except Exception:
             state['exc_type'], state['exc_val'], state['exc_tb'] = sys.exc_info()
             fret = None
         gl_post_task(state)
@@ -220,10 +254,8 @@ def through_smtp(func=None, subject='', debug=False):
     if callable(func):
         state['func'] = func
         return func_wrapper
-    else:
-        return deco_wrapper
 
-    return deco_wrapper if func is None else func_wrapper
+    return deco_wrapper
 
 def through_telegram(func=None, subject=''):
     """
@@ -243,11 +275,12 @@ def through_telegram(func=None, subject=''):
 
     # @busm.through_telegram
     def func_wrapper(*args):
+        # pylint: disable=not-callable, broad-except
         nonlocal state
         gl_pre_task(state)
         try:
             fret = state['func'](*args)
-        except Exception as ex:
+        except Exception:
             state['exc_type'], state['exc_val'], state['exc_tb'] = sys.exc_info()
             fret = None
         gl_post_task(state)
@@ -262,8 +295,8 @@ def through_telegram(func=None, subject=''):
     if callable(func):
         state['func'] = func
         return func_wrapper
-    else:
-        return deco_wrapper
+
+    return deco_wrapper
 
 def through_line(func=None, subject=''):
     """
@@ -283,11 +316,12 @@ def through_line(func=None, subject=''):
 
     # @busm.through_line
     def func_wrapper(*args):
+        # pylint: disable=not-callable, broad-except
         nonlocal state
         gl_pre_task(state)
         try:
             fret = state['func'](*args)
-        except Exception as ex:
+        except Exception:
             state['exc_type'], state['exc_val'], state['exc_tb'] = sys.exc_info()
             fret = None
         gl_post_task(state)
@@ -302,10 +336,13 @@ def through_line(func=None, subject=''):
     if callable(func):
         state['func'] = func
         return func_wrapper
-    else:
-        return deco_wrapper
+
+    return deco_wrapper
 
 class BusmHandler(logging.Handler):
+    """
+    doc string
+    """
 
     def __init__(self, channel='telegram'):
         super().__init__()
@@ -324,10 +361,16 @@ class BusmHandler(logging.Handler):
             record.lineno,
             record.msg
         )
-        t = time.time()
-        threading.Thread(target=self.append, args=(t,detail)).start()
+        curr_time = time.time()
+        threading.Thread(target=self.append, args=(curr_time, detail)).start()
+
+    def emit(self, record):
+        pass
 
     def append(self, timing, detail):
+        """
+        doc string
+        """
         with self.lock:
             self.last_logging = timing
             self.collected += detail
@@ -336,6 +379,9 @@ class BusmHandler(logging.Handler):
                 self.send_later.start()
 
     def send(self):
+        """
+        doc string
+        """
         secs_ago = time.time() - self.last_logging
         while secs_ago < 1:
             time.sleep(1 - secs_ago)
