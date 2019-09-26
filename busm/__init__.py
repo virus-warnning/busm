@@ -15,6 +15,7 @@ import smtplib
 import sys
 import time
 import threading
+import traceback
 
 import requests
 
@@ -55,9 +56,25 @@ def gl_pre_task(state):
 
 def gl_post_task(state):
     if state['conf'] is not None:
+        # Print exc_info
+        if state['exc_val'] is not None:
+            print('')
+            print('Found an exception "%s" (%s) at:' % (state['exc_val'], state['exc_type'].__name__))
+
+            ss = traceback.extract_tb(state['exc_tb'])
+            ss.reverse()
+            indent_level = 1
+            for frm in ss:
+                if frm.filename.startswith(os.getcwd()):
+                    filename = frm.filename[len(os.getcwd()) + 1:]
+                else:
+                    filename
+                print('  ' * indent_level, end='')
+                print('%s (%s:%s)' % (frm.line, filename, frm.lineno))
+                indent_level += 1
+
         # Retrive stdout.
-        sys.stdout.seek(0)
-        state['stdout'] = sys.stdout.read().strip()
+        state['stdout'] = sys.stdout.getvalue().strip()
         sys.stdout.close()
         sys.stdout = sys.__stdout__
 
@@ -101,9 +118,9 @@ def telegram_send_message(conf, subject, detail, extime=-1):
 
 def line_send_message(conf, subject, detail, extime=-1):
     if extime == -1:
-        message = '{}\n{}'.format(subject, detail)
+        message = '{}\n\n```{}```'.format(subject, detail)
     else:
-        message = '{} ({:.2f}s)\n{}'.format(subject, extime, detail)
+        message = '{} ({:.2f}s)\n\n```{}```'.format(subject, extime, detail)
 
     api = 'https://notify-api.line.me/api/notify'
     params = {
@@ -176,7 +193,10 @@ def through_smtp(func=None, subject='', debug=False):
         'func': None,
         'subject': subject,
         'debug': debug,
-        'channel': 'smtp'
+        'channel': 'smtp',
+        'exc_type': None,
+        'exc_val': None,
+        'exc_tb': None
     }
 
     # @busm.through_smtp
@@ -186,7 +206,7 @@ def through_smtp(func=None, subject='', debug=False):
         try:
             fret = state['func'](*args)
         except Exception as ex:
-            print(ex)
+            state['exc_type'], state['exc_val'], state['exc_tb'] = sys.exc_info()
             fret = None
         gl_post_task(state)
         return fret
@@ -215,7 +235,10 @@ def through_telegram(func=None, subject=''):
         'conf': None,
         'func': None,
         'subject': subject,
-        'channel': 'telegram'
+        'channel': 'telegram',
+        'exc_type': None,
+        'exc_val': None,
+        'exc_tb': None
     }
 
     # @busm.through_telegram
@@ -225,7 +248,7 @@ def through_telegram(func=None, subject=''):
         try:
             fret = state['func'](*args)
         except Exception as ex:
-            print(ex)
+            state['exc_type'], state['exc_val'], state['exc_tb'] = sys.exc_info()
             fret = None
         gl_post_task(state)
         return fret
@@ -252,7 +275,10 @@ def through_line(func=None, subject=''):
         'conf': None,
         'func': None,
         'subject': subject,
-        'channel': 'line'
+        'channel': 'line',
+        'exc_type': None,
+        'exc_val': None,
+        'exc_tb': None
     }
 
     # @busm.through_line
@@ -262,7 +288,7 @@ def through_line(func=None, subject=''):
         try:
             fret = state['func'](*args)
         except Exception as ex:
-            print(ex)
+            state['exc_type'], state['exc_val'], state['exc_tb'] = sys.exc_info()
             fret = None
         gl_post_task(state)
         return fret
