@@ -1,10 +1,14 @@
-The package busm means bring up Samuel. It has some decorators to help you get
-stdout of function execution through Email, Telegram and Line Notify.
-"Bring up samuel" is from Holy Bible 1 Samuel 28:11.
+The package busm means bring up Samuel. It's allusion comes from Holy Bible 1 Samuel 28:11.
+It help you find abnormal situations in a background process.
 
-套件 busm 是 "召喚撒母耳" 的意四，裡面有一組 decorators 可以幫你透過 Email, Telegram 和
-Line Notify 等方式取得函數執行過程的 stdout 訊息。
-召喚撒母耳這句話出自聖經撒母耳記上 28 章第 11 節，其實就是觀落陰的意思啦。
+There are several function decorators and logging handlers inside.
+These tools can send message of abnormal situations through Email, Telegram or Line Notify.
+
+套件 busm 是 "召喚撒母耳" 的意思，典故出自聖經撒母耳記上 28 章第 11 節，其實就是觀落陰的意思。
+這套件可以幫你找出背景作業的異常狀況。
+
+裡面有一些 function decorators 和 logging handlers, 用這些工具可以把異常狀況透過
+Email, Telegram, Line Notify 這些方式送出去。
 
 Quick Start
 ------------
@@ -21,22 +25,23 @@ Then add decorators before functions you'd like to monitor.
 
     import busm
 
-    @busm.through_email
+    @busm.through_smtp
     def foo_email():
-        print('foo_email() executed.')
+        print('It sucks!')
 
     @busm.through_telegram
     def foo_telegram():
-        print('foo_telegram() executed.')
+        print('Segmentation fault.')
 
     @busm.through_line
     def foo_line():
-        print('foo_line() executed.')
+        print('Stack overflow.')
 
     if __name__ == '__main__':
         foo_email()
         foo_telegram()
-        foo_line()
+        foo_line()`
+
 
 Run your python code.
 
@@ -84,3 +89,5 @@ Run your python code again.
     python foo.py
 
 Tada!
+
+Visit [here](https://github.com/virus-warnning/busm/wiki) to learn more.
