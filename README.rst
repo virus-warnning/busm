@@ -90,4 +90,16 @@ Run your python code again.
 
 Tada!
 
+.. image:: https://github.com/virus-warnning/busm/blob/master/screenshot/deco-line.png
+    :width: 200px
+    :alt: alternate text
+
+.. image:: https://github.com/virus-warnning/busm/blob/master/screenshot/deco-telegram.png
+    :width: 200px
+    :alt: alternate text
+
+.. image:: https://github.com/virus-warnning/busm/blob/master/screenshot/deco-smtp.png
+    :width: 200px
+    :alt: alternate text
+
 Visit [here](https://github.com/virus-warnning/busm/wiki) to learn more.
