@@ -61,7 +61,10 @@ def test_in_virtualenv(pyver, wheel):
     # 安裝 virtualenv
     src = os.path.expanduser('~/.pyenv/versions/%s/bin/python' % pyver)
     dst = 'sandbox/%s' % pyver
-    comp = subprocess.run(['virtualenv', '-p', src, dst])
+    comp = subprocess.run(
+        ['virtualenv', '-p', src, dst],
+        stdout=subprocess.DEVNULL
+    )
     if comp.returncode != 0:
         return False
 
@@ -71,7 +74,10 @@ def test_in_virtualenv(pyver, wheel):
     # 3. 執行測試程式
     os.chdir(dst)
     wheel = '../../' + wheel
-    comp = subprocess.run(['bin/pip', 'install', wheel, 'green'])
+    comp = subprocess.run(
+        ['bin/pip', 'install', wheel, 'green'],
+        stdout=subprocess.DEVNULL
+    )
     if comp.returncode == 0:
         comp = subprocess.run(['bin/green', '-vv', 'twnews'])
     os.chdir('../..')
@@ -87,11 +93,14 @@ def wheel_check():
         print('檢查沒通過，停止封裝')
         exit(ret)
 
-    print('檢查 README.rst')
+    print('檢查 README.md')
+    # TODO:
+    """
     ret = os.system('rstcheck README.rst')
     if ret != 0:
         print('檢查沒通過，停止封裝')
         exit(ret)
+    """
 
     print('偵測可用的測試環境')
     os.system('rm -rf sandbox/*')
@@ -102,8 +111,13 @@ def wheel_check():
         exit(1)
 
     for pyver in latest_python:
+        print('*', pyver)
+    print('')
+
+    for pyver in latest_python:
         print('測試 Python %s' % pyver)
         test_in_virtualenv(pyver, wheel)
+        print('')
 
 def upload_to_pypi(test=False):
     """ 上傳 wheel 到 PyPi """
