@@ -344,23 +344,18 @@ class BusmHandler(logging.Handler):
     doc string
     """
 
-    def __init__(self, channel='telegram'):
+    def __init__(self, channel='telegram', subject='NO SUBJECT'):
         super().__init__()
         self.conf = load_config(channel)
         self.channel = channel
+        self.subject = subject
         self.collected = ''
         self.last_logging = -1
         self.send_later = None
         self.lock = threading.Lock()
 
     def handle(self, record):
-        detail = '\n[%s] %s\nAt: %s:%d\nMessage: %s' % (
-            datetime.now().strftime('%H:%M:%S'),
-            record.levelname,
-            record.filename,
-            record.lineno,
-            record.msg
-        )
+        detail = self.format(record) + '\n'
         curr_time = time.time()
         threading.Thread(target=self.append, args=(curr_time, detail)).start()
 
@@ -389,9 +384,9 @@ class BusmHandler(logging.Handler):
 
         with self.lock:
             if self.channel == 'telegram':
-                telegram_send_message(self.conf, '', self.collected.strip())
+                telegram_send_message(self.conf, self.subject, self.collected.strip())
             elif self.channel == 'line':
-                line_send_message(self.conf, '', self.collected.strip())
+                line_send_message(self.conf, self.subject, self.collected.strip())
             self.collected = ''
             self.last_logging = -1
             self.send_later = None
