@@ -20,7 +20,7 @@ import traceback
 
 import requests
 
-VERSION = '0.9.0'
+VERSION = '0.9.1'
 HINTED = False
 
 def load_config(channel):
@@ -147,9 +147,9 @@ def line_send_message(conf, subject, detail, extime=-1):
     doc string
     """
     if extime == -1:
-        message = '{}\n\n```{}```'.format(subject, detail)
+        message = '*{}*\n```{}```'.format(subject, detail, VERSION)
     else:
-        message = '{} ({:.2f}s)\n\n```{}```'.format(subject, extime, detail)
+        message = '*{}* ({:.2f}s)\n```{}```'.format(subject, extime, detail, VERSION)
 
     api = 'https://notify-api.line.me/api/notify'
     params = {
