@@ -35,7 +35,7 @@ def load_config(channel):
         tmpl_path = os.path.dirname(__file__) + '/conf/busm.json'
         shutil.copy(tmpl_path, conf_path)
 
-    with open(conf_path, 'r') as f_conf:
+    with open(conf_path, 'r', encoding='utf-8') as f_conf:
         conf = json.load(f_conf)[channel]
         if channel == 'smtp' and \
            conf['from_email'] != 'someone@gmail.com':
@@ -46,12 +46,12 @@ def load_config(channel):
         if channel == 'line' and conf['token'] != '':
             return conf
 
-    if not hinted:
+    if not HINTED:
         print('-' * 65)
-        print('  Please change fundog config file (~/.busm.json) to enable.')
+        print('  Please change busm config file (~/.busm.json) to enable.')
         print('-' * 65)
         os.system('open -t ~/.busm.json') # TODO: Limit Darwin only.
-        hinted = True
+        HINTED = True
 
     return None
 
@@ -147,9 +147,9 @@ def line_send_message(conf, subject, detail, extime=-1):
     doc string
     """
     if extime == -1:
-        message = '*{}*\n```{}```'.format(subject, detail, VERSION)
+        message = '*{}*\n```{}```'.format(subject, detail)
     else:
-        message = '*{}* ({:.2f}s)\n```{}```'.format(subject, extime, detail, VERSION)
+        message = '*{}* ({:.2f}s)\n```{}```'.format(subject, extime, detail)
 
     api = 'https://notify-api.line.me/api/notify'
     params = {
