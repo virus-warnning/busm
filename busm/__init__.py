@@ -19,24 +19,25 @@ import threading
 import traceback
 
 import requests
+import yaml
 
-VERSION = '0.9.1'
+VERSION = '0.9.2'
 HINTED = False
 
-def load_config(channel):
+def load_config(channel, conf_path='~/.busm.yaml'):
     """
     doc string
     """
     # pylint: disable=global-statement
     global HINTED
 
-    conf_path = os.path.expanduser('~/.busm.json')
+    conf_path = os.path.expanduser(conf_path)
     if not os.path.isfile(conf_path):
-        tmpl_path = os.path.dirname(__file__) + '/conf/busm.json'
+        tmpl_path = os.path.dirname(__file__) + '/conf/busm.yaml'
         shutil.copy(tmpl_path, conf_path)
 
     with open(conf_path, 'r', encoding='utf-8') as f_conf:
-        conf = json.load(f_conf)[channel]
+        conf = yaml.load(f_conf, Loader=yaml.SafeLoader)[channel]
         if channel == 'smtp' and \
            conf['from_email'] != 'someone@gmail.com':
             return conf
@@ -344,9 +345,10 @@ class BusmHandler(logging.Handler):
     doc string
     """
 
-    def __init__(self, channel='telegram', subject='NO SUBJECT'):
+    def __init__(self, channel='telegram', subject='NO SUBJECT', config='~/.busm.yaml'):
         super().__init__()
-        self.conf = load_config(channel)
+        print('read config file from:', config)
+        self.conf = load_config(channel, conf_path=config)
         self.channel = channel
         self.subject = subject
         self.collected = ''
