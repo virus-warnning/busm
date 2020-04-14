@@ -17,11 +17,12 @@ import sys
 import time
 import threading
 import traceback
+import queue
 
 import requests
 import yaml
 
-VERSION = '0.9.3'
+VERSION = '0.9.4'
 HINTED = False
 
 def load_config(channel, conf_path='~/.busm.yaml'):
@@ -348,62 +349,53 @@ class BusmHandler(logging.Handler):
 
     def __init__(self, channel='telegram', subject='NO SUBJECT', config='~/.busm.yaml'):
         super().__init__()
-        print('read config file from:', config)
         self.conf = load_config(channel, conf_path=config)
         self.channel = channel
         self.subject = subject
-        self.collected = ''
-        self.last_logging = -1
-        self.send_later = None
-        self.data_lock = threading.Lock()
-        self.buff_lock = threading.Lock()
-
-    def handle(self, record):
-        if record.getMessage() == '$':
-            detail = '$'
-        else:
-            detail = self.format(record) + '\n'
-        curr_time = time.time()
-
-        # 注意!! 因為 Telegram, Line 的 API 回應很慢，一定要採用不阻斷處理, 否則會造成塞車
-        # Thread 的方法可能會很吃資源，也許要考慮改用 Queue 處理
-        threading.Thread(target=self.append, args=(curr_time, detail)).start()
+        self.queue = queue.Queue()
+        self.has_sender = False
 
     def emit(self, record):
         pass
 
-    def append(self, timing, detail):
-        """
-        doc string
-        """
-
-        if detail == '$':
-            with self.buff_lock:
-                self.last_logging = -1
-                while self.send_later is not None:
-                    time.sleep(0.1)
+    def handle(self, record):
+        if record.getMessage() == '$':
+            message = '$'
         else:
-            with self.buff_lock, self.data_lock:
-                self.last_logging = timing
-                self.collected += detail
-                if self.send_later is None:
-                    self.send_later = threading.Thread(target=self.send)
-                    self.send_later.start()
+            message = self.format(record)
 
-    def send(self):
-        """
-        doc string
-        """
-        secs_ago = time.time() - self.last_logging
-        while secs_ago < 1:
-            time.sleep(0.05)
-            secs_ago = time.time() - self.last_logging
+        # TODO: 這裡之後要加強 thread-safe
+        self.queue.put(message)
+        if not self.has_sender:
+            self.has_sender = True
+            threading.Thread(target=self.sender).start()
 
-        with self.data_lock:
-            if self.channel == 'telegram':
-                telegram_send_message(self.conf, self.subject, self.collected.strip())
-            elif self.channel == 'line':
-                line_send_message(self.conf, self.subject, self.collected.strip())
-            self.collected = ''
-            self.last_logging = -1
-            self.send_later = None
+    def sender(self):
+        begin = 0
+        sent = False
+        collected = []
+
+        while self.queue.qsize() > 0 or collected:
+            while self.queue.qsize() > 0:
+                message = self.queue.get()
+                if message != '$':
+                    if not collected:
+                        begin = time.time()
+                    collected.append(message)
+                else:
+                    break
+
+            if collected:
+                duration = time.time() - begin
+                if duration > 1 or message == '$':
+                    self.send('\n'.join(collected))
+                    collected.clear()
+                    sent = True
+
+        self.has_sender = False
+
+    def send(self, buffered_message):
+        if self.channel == 'telegram':
+            telegram_send_message(self.conf, self.subject, buffered_message)
+        elif self.channel == 'line':
+            line_send_message(self.conf, self.subject, buffered_message)
