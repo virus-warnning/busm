@@ -364,15 +364,17 @@ class BusmHandler(logging.Handler):
         else:
             message = self.format(record)
 
-        # TODO: 這裡之後要加強 thread-safe
+        # TODO: improve thread-safe
         self.queue.put(message)
         if not self.has_sender:
             self.has_sender = True
             threading.Thread(target=self.sender).start()
 
     def sender(self):
+        """
+        thread target to dequeue and send message
+        """
         begin = 0
-        sent = False
         collected = []
 
         while self.queue.qsize() > 0 or collected:
@@ -390,11 +392,13 @@ class BusmHandler(logging.Handler):
                 if duration > 1 or message == '$':
                     self.send('\n'.join(collected))
                     collected.clear()
-                    sent = True
 
         self.has_sender = False
 
     def send(self, buffered_message):
+        """
+        send buffered message
+        """
         if self.channel == 'telegram':
             telegram_send_message(self.conf, self.subject, buffered_message)
         elif self.channel == 'line':
