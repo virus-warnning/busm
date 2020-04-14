@@ -28,6 +28,13 @@ def sample_yaml():
     # This message would be in the 2nd bubble with formatting.
     template = 'The %s is %dcm, which length is %.2f times than normal state.'
     logger.error(template, 'dick', 30, 1.67)
+    time.sleep(1.5)
+
+    # These two messages would be in the 1st bubble.
+    logger.info('This message must be in 1st bubble.')
+    logger.info('$')
+    logger.info('This message must be in 2nd bubble.')
+    logger.info('$')
 
 if __name__ == '__main__':
     sample_yaml()

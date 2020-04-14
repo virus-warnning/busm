@@ -21,7 +21,7 @@ import traceback
 import requests
 import yaml
 
-VERSION = '0.9.2'
+VERSION = '0.9.3'
 HINTED = False
 
 def load_config(channel, conf_path='~/.busm.yaml'):
@@ -344,6 +344,7 @@ class BusmHandler(logging.Handler):
     """
     doc string
     """
+    # pylint: disable=too-many-instance-attributes
 
     def __init__(self, channel='telegram', subject='NO SUBJECT', config='~/.busm.yaml'):
         super().__init__()
@@ -354,11 +355,18 @@ class BusmHandler(logging.Handler):
         self.collected = ''
         self.last_logging = -1
         self.send_later = None
-        self.lock = threading.Lock()
+        self.data_lock = threading.Lock()
+        self.buff_lock = threading.Lock()
 
     def handle(self, record):
-        detail = self.format(record) + '\n'
+        if record.getMessage() == '$':
+            detail = '$'
+        else:
+            detail = self.format(record) + '\n'
         curr_time = time.time()
+
+        # 注意!! 因為 Telegram, Line 的 API 回應很慢，一定要採用不阻斷處理, 否則會造成塞車
+        # Thread 的方法可能會很吃資源，也許要考慮改用 Queue 處理
         threading.Thread(target=self.append, args=(curr_time, detail)).start()
 
     def emit(self, record):
@@ -368,12 +376,19 @@ class BusmHandler(logging.Handler):
         """
         doc string
         """
-        with self.lock:
-            self.last_logging = timing
-            self.collected += detail
-            if self.send_later is None:
-                self.send_later = threading.Thread(target=self.send)
-                self.send_later.start()
+
+        if detail == '$':
+            with self.buff_lock:
+                self.last_logging = -1
+                while self.send_later is not None:
+                    time.sleep(0.1)
+        else:
+            with self.buff_lock, self.data_lock:
+                self.last_logging = timing
+                self.collected += detail
+                if self.send_later is None:
+                    self.send_later = threading.Thread(target=self.send)
+                    self.send_later.start()
 
     def send(self):
         """
@@ -381,10 +396,10 @@ class BusmHandler(logging.Handler):
         """
         secs_ago = time.time() - self.last_logging
         while secs_ago < 1:
-            time.sleep(1 - secs_ago)
+            time.sleep(0.05)
             secs_ago = time.time() - self.last_logging
 
-        with self.lock:
+        with self.data_lock:
             if self.channel == 'telegram':
                 telegram_send_message(self.conf, self.subject, self.collected.strip())
             elif self.channel == 'line':
