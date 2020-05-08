@@ -2,7 +2,6 @@
 #
 # 必要工具套件:
 # * pylint
-# * rstcheck
 # * setuptools
 
 import configparser

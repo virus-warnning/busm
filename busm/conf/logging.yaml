@@ -13,14 +13,14 @@ handlers:
     formatter: chat
     class: busm.BusmHandler
     subject: 'My Background Task'
-    config: ~/tg-config.yaml
+    config: ~/busm-config.yaml
   line:
     level: DEBUG
     formatter: chat
     class: busm.BusmHandler
     channel: line
     subject: 'My Background Task'
-    config: ~/line-config.yaml
+    config: ~/busm-config.yaml
   console:
     level: DEBUG
     formatter: standard

@@ -2,7 +2,7 @@ smtp:
   host: smtp.gmail.com
   port: 587
   user: someone
-  pass: ********
+  pass: "********"
   from_name: Busm
   from_email: someone@gmail.com
   to_name: Master

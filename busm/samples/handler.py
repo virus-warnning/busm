@@ -36,5 +36,16 @@ def sample_yaml():
     logger.info('This message must be in 2nd bubble.')
     logger.info('$')
 
+def sample_handler():
+    tgcfg = busm.load_config('telegram', '~/busm-config.yaml')
+    handler = busm.BusmHandler()
+    handler.setup_telegram(tgcfg['token'], tgcfg['master'])
+
+    logger = logging.getLogger('handmade')
+    logger.setLevel(logging.INFO)
+    logger.addHandler(handler)
+    logger.info('This message is from programmatic handler.')
+
 if __name__ == '__main__':
     sample_yaml()
+    sample_handler()

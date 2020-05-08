@@ -38,6 +38,7 @@ def load_config(channel, conf_path='~/.busm.yaml'):
         shutil.copy(tmpl_path, conf_path)
 
     with open(conf_path, 'r', encoding='utf-8') as f_conf:
+        # TODO: 這裡很容易發生語法錯誤問題, 需要改善例外處理
         conf = yaml.load(f_conf, Loader=yaml.SafeLoader)[channel]
         if channel == 'smtp' and \
            conf['from_email'] != 'someone@gmail.com':
@@ -122,6 +123,8 @@ def telegram_send_message(conf, subject, detail, extime=-1):
     """
     doc string
     """
+    # pylint: disable=bare-except
+
     if extime == -1:
         message = '*{}*\n```\n{}\n```'.format(subject, detail)
     else:
@@ -138,11 +141,21 @@ def telegram_send_message(conf, subject, detail, extime=-1):
     sent = False
     retry = -1
     while not sent and retry < 3:
-        resp = requests.post(api, data=params)
-        if resp.status_code != 200:
+        try:
             retry += 1
-        else:
-            sent = True
+            resp = requests.post(api, data=params)
+            if resp.headers['Content-Type'] == 'application/json':
+                result = resp.json()
+                if result['ok']:
+                    sent = True
+                else:
+                    # TODO: handling for Telegram API responsed
+                    # print(result['description'])
+                    break
+        except:
+            # TODO: handling for Telegram API not responsed
+            pass
+
 
 def line_send_message(conf, subject, detail, extime=-1):
     """
@@ -347,13 +360,31 @@ class BusmHandler(logging.Handler):
     """
     # pylint: disable=too-many-instance-attributes
 
-    def __init__(self, channel='telegram', subject='NO SUBJECT', config='~/.busm.yaml'):
+    def __init__(self, channel='telegram', subject='', config=''):
         super().__init__()
-        self.conf = load_config(channel, conf_path=config)
+        if config != '':
+            self.conf = load_config(channel, conf_path=config)
+        else:
+            self.conf = {}
         self.channel = channel
         self.subject = subject
         self.queue = queue.Queue()
         self.has_sender = False
+
+    def setup_telegram(self, token, master):
+        """
+        setup token and master for telegram channel
+        """
+        self.channel = 'telegram'
+        self.conf['token'] = token
+        self.conf['master'] = master
+
+    def setup_line(self, token):
+        """
+        setup token for line channel
+        """
+        self.channel = 'line'
+        self.conf['token'] = token
 
     def emit(self, record):
         pass
