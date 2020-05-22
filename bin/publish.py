@@ -3,117 +3,146 @@
 # 必要工具套件:
 # * pylint
 # * setuptools
+# * wheel
+# * pyenv or pyenv-win
 
 import configparser
 import os
 import re
+import shutil
 import subprocess
 import sys
+import platform
 
 def get_wheel():
     """ 製作 wheel 檔案與取得檔名 """
-    comp = subprocess.run(['python3', 'setup.py', 'bdist_wheel'], capture_output=True)
-    if comp.returncode != 0:
-        return False
-
     wheel = False
+    comp = subprocess.run(
+        ['python', 'setup.py', 'bdist_wheel'],
+        check=True,
+        shell=True,
+        capture_output=True
+    )
     stdout = comp.stdout.decode('utf-8').split('\n')
     for line in stdout:
-        match = re.search('dist/busm-.+\.whl', line)
+        # 留意 Windows 斜線
+        # creating 'dist\busm-0.9.4-py3-none-any.whl' and adding 'build\bdist.win-amd64\wheel' to it
+        match = re.search(r'dist[\\/]busm-.+\.whl', line)
         if match is not None:
             wheel = match.group(0)
             break
 
     return wheel
 
-def get_latest_python():
-    """ 選擇 pyenv 環境中 3.5 ~ 3.8 的最新版本 """
-    detected_ver = {
-        '3.5': -1,
-        '3.6': -1,
-        '3.7': -1,
-        '3.8': -1
+def get_installed_python():
+    """ 選擇 pyenv 環境中 3.6 ~ 3.8 的最新版本 """
+    detected = {
+        '3.6': { 'patch': -1, 'suffix': '' },
+        '3.7': { 'patch': -1, 'suffix': '' },
+        '3.8': { 'patch': -1, 'suffix': '' }
     }
 
-    comp = subprocess.run(['pyenv', 'versions'], capture_output=True)
+    # 偵測已安裝版本, 同一個 minor 版採用最新的 patch 版
+    # TODO: 這段在 Windows 會噴 "找不到批次檔。" 不過實際上沒什麼大礙
+    comp = subprocess.run(['pyenv', 'versions'], shell=True, check=True, capture_output=True)
     stdout = comp.stdout.decode('utf-8').strip().split('\n')
     for line in stdout:
-        match = re.match('  (\d\.\d)\.(\d+)', line)
+        #   3.7.6
+        # * 3.8.1 (...)
+        # * 3.8.1-amd64 (...)
+        match = re.search(r'^[^\d]*(\d\.\d)\.(\d+)([^\s]*)', line)
         if match is not None:
-            minor_ver = match.group(1)
-            patch_ver = int(match.group(2))
-            if minor_ver in detected_ver and \
-                patch_ver > detected_ver[minor_ver]:
-                detected_ver[minor_ver] = patch_ver
+            minor = match[1]
+            patch = int(match[2])
+            suffix = match[3]
+            if minor in detected and \
+                patch > detected[minor]['patch']:
+                detected[minor]['patch'] = patch
+                detected[minor]['suffix'] = suffix
 
-    latest_ver = []
-    for minor_ver in detected_ver:
-        if detected_ver[minor_ver] > -1:
-            full_ver = '%s.%d' % (minor_ver, detected_ver[minor_ver])
-            latest_ver.append(full_ver)
+    # 偵測到的清單轉換為陣列
+    selected = []
+    for minor in detected:
+        if detected[minor]['patch'] != -1:
+            full_ver = '%s.%s%s' % (minor, detected[minor]['patch'], detected[minor]['suffix'])
+            selected.append(full_ver)
 
-    return latest_ver
+    return selected
 
 def test_in_virtualenv(pyver, wheel):
     """ 配置 virtualenv 並執行測試程式 """
 
     # 安裝 virtualenv
-    src = os.path.expanduser('~/.pyenv/versions/%s/bin/python' % pyver)
+    if platform.system() == 'Windows':
+        src = os.path.expanduser(r'~\.pyenv\pyenv-win\versions\%s\python.exe' % pyver)
+    else:
+        src = os.path.expanduser('~/.pyenv/versions/%s/bin/python' % pyver)
     dst = 'sandbox/%s' % pyver
     comp = subprocess.run(
-        ['virtualenv', '-p', src, dst],
-        stdout=subprocess.DEVNULL
+        ['python', '-m', 'virtualenv', '-p', src, dst],
+        check=True,
+        shell=True,
+        # capture_output=True
     )
-    if comp.returncode != 0:
-        return False
 
     # 測試 wheel 包
     # 1. 安裝 wheel
     # 2. 安裝 green
     # 3. 執行測試程式
-    os.chdir(dst)
     wheel = '../../' + wheel
+    if platform.system() == 'Windows':
+        pip = r'Scripts\pip.exe'
+    else:
+        pip = 'bin/pip'
     comp = subprocess.run(
-        ['bin/pip', 'install', wheel, 'green'],
-        stdout=subprocess.DEVNULL
+        [pip, 'install', wheel, 'green'],
+        cwd=dst,
+        check=True,
+        shell=True,
+        # capture_output=True
     )
-    if comp.returncode == 0:
-        comp = subprocess.run(['bin/green', '-vv', 'twnews'])
-    os.chdir('../..')
 
-    return (comp.returncode == 0)
+    """
+    if platform.system() == 'Windows':
+        green = r'Scripts\green.exe'
+    else:
+        green = 'bin/pip'
+    comp = subprocess.run(
+        [green, '-vv', 'twnews'],
+        cwd=dst,
+        check=True,
+        shell=True,
+        capture_output=True
+    )
+    """
 
 def wheel_check():
     """ 檢查 wheel 是否能正常運作在各個 Python 版本環境上 """
 
-    print('檢查程式碼品質')
-    ret = os.system('pylint -f colorized busm')
-    if ret != 0:
-        print('檢查沒通過，停止封裝')
-        exit(ret)
+    #print('檢查程式碼品質')
+    #ret = os.system('python -m pylint -f colorized busm')
+    #if ret != 0:
+    #    print('檢查沒通過，停止封裝')
+    #    exit(ret)
 
-    print('檢查 README.md')
+    #print('檢查 README.md')
     # TODO:
-    """
-    ret = os.system('rstcheck README.rst')
-    if ret != 0:
-        print('檢查沒通過，停止封裝')
-        exit(ret)
-    """
 
     print('偵測可用的測試環境')
-    os.system('rm -rf sandbox/*')
+    if os.path.isdir('sandbox'):
+        shutil.rmtree('sandbox')
+
     wheel = get_wheel()
-    latest_python = get_latest_python()
-    if len(latest_python) == 0:
+    installed_py = get_installed_python()
+    if len(installed_py) == 0:
         print('沒有任何可用的測試環境')
         exit(1)
 
-    for pyver in latest_python:
-        print('*', pyver)
+    for pyver in installed_py:
+        print('-', pyver)
     print('')
 
-    for pyver in latest_python:
+    for pyver in installed_py:
         print('測試 Python %s' % pyver)
         test_in_virtualenv(pyver, wheel)
         print('')
@@ -157,15 +186,18 @@ def main():
     if len(sys.argv) > 1:
         action = sys.argv[1]
 
-    if action == 'release':
-        upload_to_pypi()
-    elif action == 'test':
-        upload_to_pypi(True)
-    elif action == 'wheel':
-        wheel_check()
-    else:
-        print('Unknown action "%s".' % action)
-        exit(1)
+    try:
+        if action == 'release':
+            upload_to_pypi()
+        elif action == 'test':
+            upload_to_pypi(True)
+        elif action == 'wheel':
+            wheel_check()
+        else:
+            print('Unknown action "%s".' % action)
+            exit(1)
+    except subprocess.CalledProcessError as ex:
+        print(ex)
 
 if __name__ == '__main__':
     main()
