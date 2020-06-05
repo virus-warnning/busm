@@ -22,7 +22,7 @@ import queue
 import requests
 import yaml
 
-VERSION = '0.9.4'
+VERSION = '0.9.5.1'
 HINTED = False
 
 def load_config(channel, conf_path='~/.busm.yaml'):
@@ -395,9 +395,11 @@ class BusmHandler(logging.Handler):
         else:
             message = self.format(record)
 
-        # TODO: improve thread-safe
+        # TODO: Improve thread-safe
+        # TODO: If conf was empty, messages would cause OOM.
+        #       Maybe a limit of queue size is necessary.
         self.queue.put(message)
-        if not self.has_sender:
+        if not self.has_sender and self.conf != {}:
             self.has_sender = True
             threading.Thread(target=self.sender).start()
 
