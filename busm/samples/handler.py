@@ -37,10 +37,13 @@ def sample_yaml():
     logger.info('$')
 
 def sample_handler():
-    tgcfg = busm.load_config('telegram', '~/busm-config.yaml')
+    # Create handler
+    token = input('API token of Telegram bot: ')
+    master = input('To: ')
     handler = busm.BusmHandler()
-    handler.setup_telegram(tgcfg['token'], tgcfg['master'])
+    handler.setup_telegram(token, master)
 
+    # Inject into logger
     logger = logging.getLogger('handmade')
     logger.setLevel(logging.INFO)
     logger.addHandler(handler)

@@ -51,9 +51,9 @@ def load_config(channel, conf_path='~/.busm.yaml'):
 
     if not HINTED:
         print('-' * 65)
-        print('  Please change busm config file (~/.busm.json) to enable.')
+        print('  Please change busm config file (%s) to enable.' % conf_path)
         print('-' * 65)
-        os.system('open -t ~/.busm.json') # TODO: Limit Darwin only.
+        os.system('open -t %s' % conf_path) # TODO: Limit Darwin only.
         HINTED = True
 
     return None
