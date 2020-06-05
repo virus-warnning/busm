@@ -165,7 +165,8 @@ def upload_to_pypi(test=False):
         return
 
     # 上傳 wheel
-    cmd = ['twine', 'upload']
+    # dist\busm-0.9.5.0-py3-none-any.whl
+    cmd = ['python', '-m', 'twine', 'upload']
     if test:
         cmd.append('--repository')
         cmd.append('testpypi')
